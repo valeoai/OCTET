@@ -1,0 +1,106 @@
+# @package _global_
+logger: wandb
+wandb:
+  save_code: true
+  offline: false
+  log_dir: ./logs
+  name: 40-blob_8x16_bs10
+  group: blobex
+  project: blobgan
+  entity: mehdizz
+trainer:
+  strategy: ddp
+  benchmark: false
+  deterministic: false
+  gpus: 1
+  precision: 32
+  plugins: null
+  max_steps: 10000000
+  profiler: simple
+  num_sanity_val_steps: 0
+  log_every_n_steps: 200
+  limit_val_batches: 0
+  accumulate_grad_batches: 1
+dataset:
+  dataloader:
+    prefetch_factor: 2
+    pin_memory: true
+    drop_last: true
+    persistent_workers: true
+    num_workers: 12
+    batch_size: 10
+  name: ImageFolderDataModule
+  resolution: ${model.resolution}
+  category: bdd
+  basepath: /path/to/bdd
+  path: /datasets_local/BDD/bdd100k/images/100k
+  aspect_ratio: ${model.aspect_ratio}
+mode: fit
+seed: 0
+checkpoint:
+  every_n_train_steps: 4000
+  save_top_k: -1 #6
+  mode: max
+  monitor: step #train/fid 
+model:
+  name: BlobGAN
+  lr: 0.002
+  dim: 256
+  noise_dim: 512
+  resolution: 256
+  aspect_ratio: 2
+  lambda:
+    D_real: 1
+    D_fake: 1
+    D_R1: 50
+    G: 1
+    G_path: 2
+    G_feature_mean: 10
+    G_feature_variance: 10
+  discriminator:
+    name: StyleGANDiscriminator
+    size: ${model.resolution}
+    aspect_ratio: ${model.aspect_ratio}
+  generator:
+    name: models.networks.layoutstylegan.LayoutStyleGANGenerator
+    style_dim: ${model.dim}
+    n_mlp: 8
+    size_in: 8
+    c_model: 96
+    spatial_style: ${model.spatial_style}
+    size: ${model.resolution}
+    override_c_in: 256
+    aspect_ratio: ${model.aspect_ratio}
+  layout_net:
+    name: models.networks.layoutnet.LayoutGenerator
+    n_features_max: ${model.n_features_max}
+    feature_dim: 256
+    style_dim: ${model.dim}
+    noise_dim: ${model.noise_dim}
+    norm_features: true
+    mlp_lr_mul: 0.01
+    mlp_hidden_dim: 1024
+    spatial_style: ${model.spatial_style}
+    aspect_ratio: ${model.aspect_ratio}
+  D_reg_every: 16
+  G_reg_every: -1
+  λ: ${.lambda}
+  log_images_every_n_steps: 1000
+  n_features_min: ${model.n_features}
+  n_features_max: ${model.n_features}
+  n_features: 40
+  spatial_style: true
+  feature_jitter_xy: 0.04
+  feature_jitter_shift: 0.5
+  feature_jitter_angle: 0.1
+  fid_stats_name: bdd_rect_256
+resume:
+  id: null #36lxjdji
+  step: null
+  epoch: null
+  last: true
+  best: false
+  clobber_hparams: false
+  project: ${wandb.project}
+  log_dir: ${wandb.log_dir}
+  model_only: false

@@ -1,0 +1,42 @@
+# @package _global_
+#dataset:
+#  basepath: /path/to/your/lsun  # Change to your path
+trainer:
+  gpus: 1  # Change to your number of GPUs
+  #log_every_n_steps: 10
+wandb:  # Fill in your settings
+  name: 10-blob BlobGAN on bdd
+  offline: false
+  group: YOUR_GROUP
+  project: blobgan
+  entity: mehdiz
+#logger: false
+dataset:
+  dataloader:
+    batch_size: 16
+  name: ImageFolderDataModule
+  path: /datasets_local/BDD/bdd100k/images/100k
+#model:
+#  log_images_every_n_steps: 20
+model:
+  name: BlobGAN
+  fid_stats_name: bdd_all
+  lr: 0.002
+  dim: 512
+  noise_dim: 512
+  resolution: 256
+  layout_net:
+    name: models.networks.layoutnet.LayoutGenerator
+    n_features_max: ${model.n_features_max}
+    feature_dim: 256
+  n_features: 20
+  generator:
+    name: models.networks.layoutstylegan.LayoutStyleGANGenerator
+    style_dim: ${model.dim}
+    n_mlp: 8
+    size_in: 16
+    #c_model: 32
+    override_c_in: 256
+    spatial_style: ${model.spatial_style}
+    size: ${model.resolution}
+  
