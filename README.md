@@ -3,7 +3,7 @@
 ## Introduction
 This is the official repository for the paper:
 
-[OCTET: Object-aware Counterfactual Explanations](https://arxiv.org/abs/2211.12380), Mehdi Zemni, Mickaël Chen, Éloi Zablocki, Hédi Ben-Younes, Patrick Pérez, Matthieu Cord.
+[OCTET: Object-aware Counterfactual Explanations](https://arxiv.org/abs/2211.12380), Mehdi Zemni, Mickaël Chen, Éloi Zablocki, Hédi Ben-Younes, Patrick Pérez, Matthieu Cord. CVPR 2023.
 
 OCTET is a counterfactual explanation method for deep visual classifiers.
 
@@ -55,6 +55,22 @@ python octet_invert_counterfactual.py
 
 This code is based on the original [STEEX code](https://github.com/valeoai/STEEX) and [BlobGAN code](https://github.com/dave-epstein/blobgan).
 
+## Citation
+
+If the code helped you for your research, please consider citing
+```
+@inproceedings{zemni2023octet,
+  title     = {OCTET: Object-aware Counterfactual Explanations},
+  author    = {Mehdi Zemni and
+               Micka{\"{e}}l Chen and
+               {\'{E}}loi Zablocki and
+               Hedi Ben{-}Younes and
+               Patrick P{\'{e}}rez and
+               Matthieu Cord},
+  booktitle = {{IEEE} Conference on Computer Vision and Pattern Recognition, {CVPR}},
+  year      = {2023}
+}
+```
 
 ## Disclaimer
 
