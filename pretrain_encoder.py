@@ -22,10 +22,11 @@ from data.utils import CustomImageDataset
 output_dir = 'encoder_pretraining'
 os.makedirs(output_dir, exist_ok=True)
 device = 'cuda'
-bs = 8
+#bs = 8
+bs = 16
 mlp_idx = -1 #
 log_imgs_every = 500
-save_every = 2000
+save_every = 1000
 lr = 0.005
 n_iters = 150000
 blobgan_weights = 'checkpoints/blobgan_256x512.ckpt'
@@ -107,6 +108,7 @@ for batch_idx in pbar:
             image_grid = F.to_pil_image(image_grid)
 
             image_grid = image_grid.save(f"{output_dir}/step_{batch_idx}.jpg")
+        print("loss", sum(losses_)/len(losses_))
     if (batch_idx+1) % save_every == 0 :
         state_dict = {'model': model.inverter.state_dict(),
                     'optimizer': optimizer.state_dict(),
@@ -116,4 +118,5 @@ for batch_idx in pbar:
         mean_loss = sum(losses_)/len(losses_)
         if mean_loss < best_loss:
             best_loss = mean_loss
+            print("saving best at step", batch_idx)
             torch.save(state_dict,f"{output_dir}/best.pt")

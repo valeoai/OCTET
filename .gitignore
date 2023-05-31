@@ -1,5 +1,9 @@
 checkpoints/*
 experiments/*
+encoder_*/*
+fid_stats/*
+shared_files/*
+*.ipynb
 
 *.swp
 

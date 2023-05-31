@@ -18,25 +18,25 @@ from utils import is_rank_zero, print_once
 EXT = ('.jpg', '.png')
 LABELS = np.array([
 'Forward - follow traffic',
-'Forward - the road is clear', 
-'Forward - the traffic light is green', 
-'Stop/slow down - obstacle: car', 
-'Stop/slow down - obstacle: person/pedestrain', 
-'Stop/slow down - obstacle: rider', 
-'Stop/slow down - obstacle: others', 
-'Stop/slow down - the traffic light', 
-'Stop/slow down - the traffic sign', 
-'Turn left - front car turning left', 
-'Turn left - on the left-turn lane', 
-'Turn left - traffic light allows', 
-'Turn right - front car turning right', 
-'Turn right - on the right-turn lane', 
-'Turn right - traffic light allows', 
-'Can not turn left - obstacles on the left lane', 
-'Can not turn left - no lane on the left', 
-'Can not turn left - solid line on the left', 
-'Can not turn right - obstacles on the right lane', 
-'Can not turn right - no lane on the right', 
+'Forward - the road is clear',
+'Forward - the traffic light is green',
+'Stop/slow down - obstacle: car',
+'Stop/slow down - obstacle: person/pedestrain',
+'Stop/slow down - obstacle: rider',
+'Stop/slow down - obstacle: others',
+'Stop/slow down - the traffic light',
+'Stop/slow down - the traffic sign',
+'Turn left - front car turning left',
+'Turn left - on the left-turn lane',
+'Turn left - traffic light allows',
+'Turn right - front car turning right',
+'Turn right - on the right-turn lane',
+'Turn right - traffic light allows',
+'Can not turn left - obstacles on the left lane',
+'Can not turn left - no lane on the left',
+'Can not turn left - solid line on the left',
+'Can not turn right - obstacles on the right lane',
+'Can not turn right - no lane on the right',
 'Can not turn right - solid line on the left'])
 
 class ImageFolderWithFilenames(ImageFolder):
@@ -84,9 +84,9 @@ class CustomImageDataset(Dataset):
         self.imgs = sorted([p for p in self.imgs if p.endswith(EXT)])#*300
         #if split == 'train':
         #    with open('sunny.txt') as f:
-        #        lines = f.read().splitlines() 
+        #        lines = f.read().splitlines()
         #    self.imgs = list(set(self.imgs) & set(lines))
-        
+
 
     def __len__(self):
         return len(self.imgs)

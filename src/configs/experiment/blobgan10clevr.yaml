@@ -1,8 +1,8 @@
 # @package _global_
 logger: wandb
 wandb:
+  offline: true
   save_code: true
-  offline: false
   log_dir: ./logs
   name: 40-blob_8x16_bs10
   group: blobex
@@ -28,12 +28,12 @@ dataset:
     drop_last: true
     persistent_workers: true
     num_workers: 12
-    batch_size: 10
+    batch_size: 16
   name: ImageFolderDataModule
   resolution: ${model.resolution}
   category: bdd
-  basepath: /path/to/bdd
-  path: /datasets_local/BDD/bdd100k/images/100k
+  basepath: /datasets_local/CLEVR/
+  path: /datasets_local/CLEVR/
   aspect_ratio: ${model.aspect_ratio}
 mode: fit
 seed: 0

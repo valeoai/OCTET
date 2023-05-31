@@ -20,21 +20,32 @@ from models import DecisionDensenetModel
 from omegaconf import OmegaConf
 from data.utils import CustomImageDataset
 
-output_dir = 'encoder_training'
+#output_dir = 'encoder_finetuning'
+#output_dir = 'encoder_finetuning_no_decision'
+output_dir = 'encoder_finetuning_l1_lpips'
+
+#loss_type = "l2"
+loss_type = "l1"
+
 os.makedirs(output_dir, exist_ok=True)
 device = 'cuda'
-bs = 2
+bs = 6 # ok for urus 40
+bs = 2 # ok for urus 20
+bs = 1 # ok for other gpus
 mlp_idx = -1
 log_imgs_every = 500
-save_every = 2_000
+save_every = 1000
 lr = 0.002
 n_iters = 150000
 blobgan_weights = 'checkpoints/blobgan_256x512.ckpt'
 decision_model_weights = 'checkpoints/decision_densenet.tar'
 
 config = OmegaConf.load('src/configs/experiment/invertblobgan_rect.yaml')
+#config = OmegaConf.load('src/configs/experiment/invertblobgan_rect_no_decision.yaml')
+
 config.model.generator_pretrained = blobgan_weights
 model = models.get_model(**config.model).to(device)
+model.inverter.load_state_dict(torch.load('encoder_pretraining/best.pt')['model']) # best is step 55k (killed after 100k steps), with bs=16 for pretraining
 
 decision_model = DecisionDensenetModel(num_classes=4)
 decision_model.load_state_dict(torch.load(decision_model_weights)['model_state_dict'])
@@ -56,7 +67,7 @@ transform = T.Compose([
 ])
 dataset_path = '/datasets_local/BDD/bdd100k/images/100k/train'
 dataset = CustomImageDataset(dataset_path, transform)
-dataloader_train = torch.utils.data.DataLoader(dataset, batch_size = bs, shuffle = True, drop_last=True)
+dataloader_train = torch.utils.data.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
 
 
 params = list(model.inverter.parameters())
@@ -82,14 +93,18 @@ while iters < n_iters:
             target_decision_feat_fake = decision_model.feat_extract(gen_imgs)
             target_decision_feat_real = decision_model.feat_extract(batch_real)
 
-
         losses = dict()
 
         z_pred_fake = model.inverter(gen_imgs.detach())
 
         layout_pred_fake, reconstr_fake = model.generator.gen(z=z_pred_fake, ema=True, no_jiter=no_jiter, viz=log_images, ret_layout=True, mlp_idx=-1, viz_colors=KLD_COLORS)
 
-        losses['fake_MSE'] = (gen_imgs - reconstr_fake).pow(2).mean()
+        if loss_type == "l2":
+            losses['fake_MSE'] = (gen_imgs - reconstr_fake).pow(2).mean()
+        elif loss_type == "l1":
+            losses['fake_MSE'] = torch.abs(gen_imgs - reconstr_fake).mean()
+        else:
+            assert False
         losses['fake_LPIPS'] = model.L_LPIPS(reconstr_fake, gen_imgs).mean()
 
         decision_feat_fake = decision_model.feat_extract(reconstr_fake)
@@ -104,7 +119,12 @@ while iters < n_iters:
                                                                 no_jiter=no_jiter, mlp_idx=-1, viz_colors=KLD_COLORS)
                                                                 #mlp_idx=len(self.generator.layout_net_ema.mlp))
 
-        losses['real_MSE'] = (batch_real - reconstr_real).pow(2).mean()
+        if loss_type == "l2":
+            losses['real_MSE'] = (batch_real - reconstr_real).pow(2).mean()
+        elif loss_type == "l1":
+            losses['real_MSE'] = torch.abs(batch_real - reconstr_real).mean()
+        else:
+            assert False
         losses['real_LPIPS'] = model.L_LPIPS(reconstr_real, batch_real).mean()
 
         decision_feat_real = decision_model.feat_extract(reconstr_real)
@@ -157,3 +177,4 @@ while iters < n_iters:
             if mean_loss < best_loss:
                 best_loss = mean_loss
                 torch.save(state_dict,f"{output_dir}/best.pt")
+

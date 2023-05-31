@@ -27,10 +27,10 @@ model:
   lambda: # Needed for convenience since can't input λ on command line
     real_LPIPS: 1
     real_MSE: 0.1
-    real_decision: 0.05
+    real_decision: 0.
     fake_LPIPS: 1
     fake_MSE: 1
-    fake_decision: 0.1
+    fake_decision: 0.
     fake_latents_MSE: 10
   λ: ${.lambda}
   G_pretrained:

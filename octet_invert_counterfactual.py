@@ -32,11 +32,86 @@ class Config:
     decision_model_weights = 'checkpoints/decision_densenet.tar'
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
-    output_dir = 'experiments/output_dir'
-    real_images = True # Means that real images are used, otherwise images are generated from blobGan latent space
-    dataset_path = '/datasets_local/BDD/bdd100k/seg/images/val'
-    bs = 2
-    num_imgs=200
+
+    lambda_inv_lpips = 1
+    lambda_inv_l2 = 0.1
+    lambda_inv_decision_fm = 0.1
+    lambda_inv_latent_prox = 0.1
+
+    real_images = True
+    inversion_only = False
+    load_inversion = False
+
+    learning_rate_cf = 0.08
+
+    #output_dir = 'experiments/reconstruction_only_1_01_01_01'
+    #lambda_inv_lpips = 1
+    #lambda_inv_l2 = 0.1
+    #lambda_inv_decision_fm = 0.1
+    #lambda_inv_latent_prox = 0.1
+
+    #output_dir = 'experiments/reconstruction_only_1_01_00_01'
+    #lambda_inv_lpips = 1
+    #lambda_inv_l2 = 0.1
+    #lambda_inv_decision_fm = 0.
+    #lambda_inv_latent_prox = 0.1
+
+    #output_dir = 'experiments/reconstruction_only_1_01_01_00'
+    #lambda_inv_lpips = 1
+    #lambda_inv_l2 = 0.1
+    #lambda_inv_decision_fm = 0.1
+    #lambda_inv_latent_prox = 0.
+
+    #output_dir = 'experiments/reconstruction_only_1_00_01_01'
+    #lambda_inv_lpips = 1
+    #lambda_inv_l2 = 0.
+    #lambda_inv_decision_fm = 0.1
+    #lambda_inv_latent_prox = 0.1
+
+    #output_dir = 'experiments/reconstruction_only_0_01_01_01'
+    #lambda_inv_lpips = 0
+    #lambda_inv_l2 = 0.1
+    #lambda_inv_decision_fm = 0.1
+    #lambda_inv_latent_prox = 0.1
+
+    #dataset_path = '/datasets_local/BDD/bdd100k/seg/images/val' # Val set
+    #real_images = True # Means that real images are used, otherwise images are generated from blobGan latent space
+    #inversion_only = False # Only inver images
+
+    #load_inversion = True
+    #output_dir = 'experiments/cf_inversed_1_01_01_01_lambda_prox_1_lr_008'
+    #inversions_path = 'experiments/reconstruction_only_1_01_01_01/all_inversions.pt' # Default None
+
+    #load_inversion = True
+    #output_dir = 'experiments/cf_inversed_1_01_01_00_lambda_prox_1_lr_008'
+    #inversions_path = 'experiments/reconstruction_only_1_01_01_00/all_inversions.pt' # Default None
+
+    ## Quali real val image
+    #dataset_path = '/datasets_local/BDD/bdd100k/seg/images/val' # Val set
+    #load_inversion = True
+    #output_dir = 'experiments/quali_cf_lr_0.19'
+    #inversions_path = 'shared_files/validation_rec_reproducible.pt' # Default None
+
+    ## Quali real train image
+    #dataset_path = '/datasets_local/BDD/bdd100k/seg/images/val' # Val set
+    #load_inversion = False
+    #output_dir = 'experiments/quali_cf_val_lr_0.08'
+
+    ### Quali generated images
+    #real_images = False
+    #output_dir = 'experiments/quali_generated_008_lambda_0'
+    #learning_rate_cf = 0.08
+    #lambda_prox_cf = 0.
+
+    #real_images = False # Means that real images are used, otherwise images are generated from blobGan latent space
+    #output_dir = 'experiments/generated_style_struct_lambda0_100iterations_lr_019'
+    #dataset_path = '/datasets_local/BDD/bdd100k/seg/images/val' # Val set
+    #dataset_path = '/datasets_local/BDD/bdd100k/seg/images/train' # Train set
+
+    bs = 3 # Fits on 2080 with 12GB
+    #bs = 6 # Fits on A100 with 20GB
+    #bs = 16 # Fits on A100 with 40GB
+    num_imgs=16*16
 
 class OCTET():
     def __init__(self, opt: Config):
@@ -69,9 +144,13 @@ class OCTET():
 
         # Create dataloader if real images are used
         if opt.real_images:
-            self.transform = self.get_transform()
-            self.get_dataloader(opt.dataset_path, opt.bs)
-            self.num_imgs = len(self.dataset)
+            if not(opt.load_inversion):
+                self.transform = self.get_transform()
+                self.get_dataloader(opt.dataset_path, opt.bs)
+                self.num_imgs = len(self.dataset)
+            else:
+                self.loaded_inversions = torch.load(opt.inversions_path)
+                self.num_imgs = len(self.loaded_inversions)
         else:
             self.num_imgs = opt.num_imgs
 
@@ -92,7 +171,7 @@ class OCTET():
 
     def get_dataloader(self, path, batch_size, shuffle=False):
         self.dataset = CustomImageDataset(path, self.transform)
-        self.dataloader = torch.utils.data.DataLoader(self.dataset, batch_size = batch_size, shuffle = shuffle)
+        self.dataloader = torch.utils.data.DataLoader(self.dataset, batch_size=batch_size, shuffle=shuffle)
 
     def lpips_loss(self, x1,x2):
         return self.loss_fn_vgg(x1, x2).squeeze()
@@ -120,7 +199,7 @@ class OCTET():
 
         num_batches = self.num_imgs // opt.bs
         num_batches += int(self.num_imgs % opt.bs > 0)
-        if opt.real_images:
+        if opt.real_images and not(opt.load_inversion):
             iterator = iter(self.dataloader)
 
         # Iterate over image batches
@@ -129,21 +208,42 @@ class OCTET():
             metadata={}
 
             if opt.real_images:
+                if not(opt.load_inversion):
 
-                batch = next(iterator)
-                # loading target image
-                metadata['image_names'] = batch[1]
-                target = batch[0].to(opt.device)
+                    batch = next(iterator)
+                    # loading target image
+                    metadata['image_names'] = batch[1]
+                    target = batch[0].to(opt.device)
 
-                # Step 1: Encoding image into intermediate latent space (1024)
-                latent_enc = self.encoder(target).detach()
-                # Transform this intermediate latent into blob params & features
-                blob_enc = self.generate_layout_feat_(latent_enc, mlp_idx=-1)
+                    # Step 1: Encoding image into intermediate latent space (1024)
+                    latent_enc = self.encoder(target).detach()
+                    # Transform this intermediate latent into blob params & features
+                    blob_enc = self.generate_layout_feat_(latent_enc, mlp_idx=-1)
 
-                # Step 2: Refine blob parameters by optimizing directly on the blob_enc parameters
-                blob_optim, images, lpips_ = self.inv_optim(target, blob_enc)
-                metadata['blob_optim'] = blob_optim
-                metadata['lpips'] = lpips_
+                    # Step 2: Refine blob parameters by optimizing directly on the blob_enc parameters
+                    blob_optim, images, lpips_ = self.inv_optim(target, blob_enc)
+                    metadata['blob_optim'] = blob_optim
+                    metadata['lpips'] = lpips_
+
+                else:
+                    metadata['image_names'] = list(self.loaded_inversions.keys())[opt.bs*idx:opt.bs*(idx+1)]
+                    aux = list(self.loaded_inversions.values())[opt.bs*idx:opt.bs*(idx+1)]
+                    #metadata['blob_optim'] = {k: torch.cat([aux[i][k] for i in range(opt.bs)]) for k in aux[0].keys()}
+                    metadata['blob_optim'] = {k: torch.cat([aux[i][k].to(opt.device) for i in range(len(metadata["image_names"]))]) for k in aux[0].keys()}
+                    target = []
+                    #for i in range(opt.bs):
+                    for i in range(len(metadata["image_names"])):
+                        img_path = os.path.join(opt.dataset_path, metadata['image_names'][i])
+                        image = Image.open(img_path)
+                        transform = self.get_transform()
+                        target.append(transform(image)[None,...])
+                    target = torch.cat(target)
+                    reconstr_images = self.model.gen(layout=metadata['blob_optim'], **self.model.render_kwargs)
+
+                    images = {
+                        'real': target,
+                        'reconstr': reconstr_images,
+                    }
 
             else:
                 z = torch.randn((opt.bs, 512)).to(opt.device)
@@ -152,13 +252,17 @@ class OCTET():
                 with torch.no_grad():
                     imgs = self.model.gen(layout=blob_optim, **self.model.render_kwargs)
                     images = {'query': imgs}  #bs,1,3,256,256
+                    target = imgs
                 metadata['blob_optim'] = blob_optim
 
             # Optimizing blob parameters for cf
-            metadata, images = self.cf_optim(metadata, images, target.to(opt.device))
+            if not opt.inversion_only:
+                metadata, images = self.cf_optim(metadata, images, target.to(opt.device))
+
             self.save_results(metadata, images, idx)
 
     def inv_optim(self, im_tar, blob_enc):
+        opt = self.opt
         # Script to optimize the blob parameters to better match the original query image
 
         ## hyper parameters
@@ -190,7 +294,7 @@ class OCTET():
         for step in pbar:
             img =  self.model.gen(layout=blob_optim, **self.model.render_kwargs)
 
-            loss_l2 = torch.mean((img - im_tar) ** 2, dim=(1,2,3))
+            loss_l2 = torch.mean((img - im_tar) ** 2, dim=(1, 2, 3))
             log_message = f'loss_l2: {get_tensor_value(loss_l2).mean():.4f}'
 
             loss_pips = self.lpips_loss(img, im_tar)
@@ -202,10 +306,10 @@ class OCTET():
 
             loss_prox = 0
             for (k_opt, v_opt), (k_orig, v_orig) in zip(blob_optim.items(), blob_enc.items()):
-                loss_prox +=  prox_criterion(v_opt,v_orig)
+                loss_prox +=  prox_criterion(v_opt, v_orig)
             log_message += f', L_prox: {get_tensor_value(loss_prox).mean():.4f}'
 
-            loss = loss_pips + 0.1*loss_l2 + 0.1*decision_loss + 0.1*loss_prox
+            loss = opt.lambda_inv_lpips * loss_pips + opt.lambda_inv_l2 * loss_l2 + opt.lambda_inv_decision_fm * decision_loss + opt.lambda_inv_latent_prox* loss_prox
 
             pbar.set_description_str(log_message)
             loss = loss.sum()
@@ -229,12 +333,16 @@ class OCTET():
         # Hyperparameters
         target_attributes = [0, 1, 2, 3]
         target_features = ['spatial_style']
-        learning_rate = 0.08
+        learning_rate = self.opt.learning_rate_cf
+        #learning_rate = 0.19
         n_iters = 100
         lr = {'xs':learning_rate/8, 'ys':learning_rate/8, 'sizes':learning_rate,
         'covs':learning_rate/8, 'features':learning_rate/8, 'spatial_style':learning_rate/8} #/5 /5 /1 /10
-        λ_prox = 0 #1 5 0 0.1 10
-        λs = {'spatial_style':1}
+        #λ_prox = 0 #1 5 0 0.1 10
+        #λ_prox = 0.1
+        #λ_prox = 0.
+        λ_prox = self.opt.lambda_prox_cf
+        λs = {'spatial_style': 1}
 
         criterion = torch.nn.L1Loss()
         layout_metadata_orig = metadata['blob_optim']
@@ -275,7 +383,7 @@ class OCTET():
                 loss_prox = 0
                 for (k_opt, v_opt), (k_orig, v_orig) in zip(layout_metadat_opt.items(), layout_metadata_orig.items()):
                     λ = λs.get(k_opt, 0)
-                    loss_prox += λ * criterion(v_opt,v_orig)
+                    loss_prox += λ * criterion(v_opt, v_orig)
                 log_message += f', L_prox: {get_tensor_value(loss_prox).mean():.4f}'
 
                 pbar.set_description_str(log_message)

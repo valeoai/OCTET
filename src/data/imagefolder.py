@@ -10,7 +10,7 @@ from torchvision import transforms as T
 from torchvision.transforms import InterpolationMode
 
 from data.nodata import NullIterableDataset
-from data.utils import ImageFolderWithFilenames, CustomImageDataset
+from data.utils import CustomImageDataset
 from utils import print_once
 
 _all__ = ['ImageFolderDataModule']
