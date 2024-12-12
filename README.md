@@ -7,7 +7,7 @@ This is the official repository for the paper:
 
 OCTET is a counterfactual explanation method for deep visual classifiers.
 
-The work will be presented at CVPR 2023.
+The work was presented at CVPR 2023.
 
 ## Installation and preparation
 
